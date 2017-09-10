@@ -32,7 +32,7 @@
 #include <pcap.h>
 
 #define MAXLEN 			2048
-#define MAX_PACKET_SIZE		2048
+#define MAX_PACKET_SIZE		65535
 
 struct _EtherHeader {
 	uint16_t destMAC1;
@@ -152,80 +152,6 @@ void err_sys(const char *fmt, ...)
 	exit(1);
 }
 
-/**
- * Open a rawsocket for the network interface
- */
-int32_t open_rawsocket(char *ifname, int32_t * rifindex)
-{
-	unsigned char buf[MAX_PACKET_SIZE];
-	int32_t ifindex;
-	struct ifreq ifr;
-	struct sockaddr_ll sll;
-	int n;
-
-	int32_t fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-	if (fd == -1)
-		err_sys("socket %s - ", ifname);
-
-	// get interface index
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-	if (ioctl(fd, SIOCGIFINDEX, &ifr) == -1)
-		err_sys("SIOCGIFINDEX %s - ", ifname);
-	ifindex = ifr.ifr_ifindex;
-	*rifindex = ifindex;
-
-	memset(&sll, 0xff, sizeof(sll));
-	sll.sll_family = AF_PACKET;
-	sll.sll_protocol = htons(ETH_P_ALL);
-	sll.sll_ifindex = ifindex;
-	if (bind(fd, (struct sockaddr *)&sll, sizeof(sll)) == -1)
-		err_sys("bind %s - ", ifname);
-
-	/* flush all received packets. 
-	 *
-	 * raw-socket receives packets from all interfaces
-	 * when the socket is not bound to an interface
-	 */
-	int32_t i;
-	do {
-		fd_set fds;
-		struct timeval t;
-		FD_ZERO(&fds);
-		FD_SET(fd, &fds);
-		memset(&t, 0, sizeof(t));
-		i = select(FD_SETSIZE, &fds, NULL, NULL, &t);
-		if (i > 0) {
-			recv(fd, buf, i, 0);
-		};
-
-		Debug("interface %d flushed", ifindex);
-	}
-	while (i);
-
-	/* Enable auxillary data if supported and reserve room for
-	 * reconstructing VLAN headers. */
-#ifdef HAVE_PACKET_AUXDATA
-	int val = 1;
-	if (setsockopt(fd, SOL_PACKET, PACKET_AUXDATA, &val, sizeof(val)) == -1 && errno != ENOPROTOOPT) {
-		err_sys("setsockopt(packet_auxdata): %s", strerror(errno));
-	}
-#endif				/* HAVE_PACKET_AUXDATA */
-
-	Debug("%s opened (fd=%d interface=%d)", ifname, fd, ifindex);
-
-	n = 40 * 1024 * 1024;
-	setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n));
-	if (debug) {
-		socklen_t ln;
-		if (getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &n, &ln) == 0) {
-			Debug("RAW socket RCVBUF setting to %d\n", n);
-		}
-	}
-
-	return fd;
-}
-
 char *stamp(void)
 {
 	static char st_buf[200];
@@ -264,7 +190,7 @@ char *process_tcp_packet(char *buf, int len, char *ip, int port)
 	url[0] = 0;
 	if (len <= 10)
 		return url;
-	buf[len] = 0;
+	buf[len - 1] = 0;
 	if (memcmp(buf, "GET ", 4) == 0) {
 		method = 0;	// GET 
 		purl = buf + 4;
@@ -301,9 +227,9 @@ char *process_tcp_packet(char *buf, int len, char *ip, int port)
 
 }
 
-void process_packet(u_int8_t * buf, int len)
+void process_packet(const char *buf, int len)
 {
-	u_int8_t *packet;
+	char *packet;
 	int VLANdot1Q = 0;
 	int port;
 	char sip[MAXLEN], dip[MAXLEN];
@@ -392,7 +318,7 @@ void process_pcap_packet(void)
 	pcap_t *handle;
 	struct pcap_pkthdr *header;	/* The header that pcap gives us */
 	char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
-	unsigned char *buf;
+	const unsigned char *buf;
 	int len;
 	if (dev_name[0])
 		handle = pcap_open_live(dev_name, MAX_PACKET_SIZE, 0, 1000, errbuf);
