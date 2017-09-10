@@ -235,17 +235,23 @@ void process_packet(const char *buf, int len)
 	char sip[MAXLEN], dip[MAXLEN];
 	char *url;
 
+	if (debug)
+		printf("pkt, len=%d\n", len);
 	if (len < 54)
 		return;
 	packet = buf + 12;	// skip ethernet dst & src addr
 	len -= 12;
 
 	if ((packet[0] == 0x81) && (packet[1] == 0x00)) {	// skip 802.1Q tag 0x8100
+		if (debug)
+			printf("802.1Q pk\n");
 		packet += 4;
 		len -= 4;
 		VLANdot1Q = 1;
 	}
 	if ((packet[0] == 0x08) && (packet[1] == 0x00)) {	// IPv4 packet 0x0800
+		if (debug)
+			printf("ipv4 pk\n");
 		packet += 2;
 		len -= 2;
 
@@ -265,6 +271,8 @@ void process_packet(const char *buf, int len)
 		if (!tcph->ack)
 			return;
 		port = ntohs(tcph->dest);
+		if (debug)
+			printf("tcp pkt, dport=%d\n", port);
 		if (!(rev_port ^ port_in_list(port)))
 			return;
 		int tcp_payload_len = len - ip->ihl * 4 - tcph->doff * 4;
@@ -280,6 +288,8 @@ void process_packet(const char *buf, int len)
 			printf("%s:%d - %s:%d %s\n", sip, ntohs(tcph->source), dip, port, url);
 		}
 	} else if ((packet[0] == 0x86) && (packet[1] == 0xdd)) {	// IPv6 packet, 0x86dd
+		if (debug)
+			printf("ipv6 pk\n");
 		packet += 2;
 		len -= 2;
 
