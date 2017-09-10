@@ -2,9 +2,6 @@
 	  by james@ustc.edu.cn 2017.09.10
 */
 
-// kernel use auxdata to send vlan tag, we use auxdata to reconstructe vlan header
-#define HAVE_PACKET_AUXDATA 1
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,17 +29,10 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pcap.h>
 
 #define MAXLEN 			2048
 #define MAX_PACKET_SIZE		2048
-
-#ifdef HAVE_PACKET_AUXDATA
-#define VLAN_TAG_LEN   4
-struct vlan_tag {
-	u_int16_t vlan_tpid;	/* ETH_P_8021Q */
-	u_int16_t vlan_tci;	/* VLAN TCI */
-};
-#endif
 
 struct _EtherHeader {
 	uint16_t destMAC1;
@@ -59,14 +49,13 @@ typedef struct _EtherHeader EtherPacket;
 int daemon_proc = 0;
 int debug = 0;
 
-int32_t ifindex;
-
-int fdraw;
 char dev_name[MAXLEN];
+char pcap_fname[MAXLEN];
 int TotalPorts = 0;
 int rev_port = 0;
 
 #define MAXPORTS 64
+
 unsigned int Ports[MAXPORTS];
 
 void add_port(int port)
@@ -398,40 +387,28 @@ void process_packet(u_int8_t * buf, int len)
 	}
 }
 
-void process_raw_packet(void)
+void process_pcap_packet(void)
 {
-	u_int8_t buf[MAX_PACKET_SIZE + VLAN_TAG_LEN];
+	pcap_t *handle;
+	struct pcap_pkthdr *header;	/* The header that pcap gives us */
+	char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
+	unsigned char *buf;
 	int len;
-
-	while (1) {		// read from eth rawsocket
-#ifdef HAVE_PACKET_AUXDATA
-		struct sockaddr from;
-		struct iovec iov;
-		struct msghdr msg;
-		union {
-			struct cmsghdr cmsg;
-			char buf[CMSG_SPACE(sizeof(struct tpacket_auxdata))];
-		} cmsg_buf;
-		msg.msg_name = &from;
-		msg.msg_namelen = sizeof(from);
-		msg.msg_iov = &iov;
-		msg.msg_iovlen = 1;
-		msg.msg_control = &cmsg_buf;
-		msg.msg_controllen = sizeof(cmsg_buf);
-		msg.msg_flags = 0;
-
-		iov.iov_len = MAX_PACKET_SIZE;
-		iov.iov_base = buf;
-		len = recvmsg(fdraw, &msg, MSG_TRUNC);
-		if (len <= 0)
+	if (dev_name[0])
+		handle = pcap_open_live(dev_name, MAX_PACKET_SIZE, 0, 1000, errbuf);
+	else
+		handle = pcap_open_offline(pcap_fname, errbuf);
+	if (handle == NULL) {
+		fprintf(stderr, "pcap open %s error %s\n", dev_name[0] ? dev_name : pcap_fname, errbuf);
+		exit(0);
+	}
+	while (1) {
+		int r = pcap_next_ex(handle, &header, (const u_char **)&buf);
+		if (r == 0)
 			continue;
-		if (len >= MAX_PACKET_SIZE) {
-			err_msg("recv long pkt from raw, len=%d", len);
-			len = MAX_PACKET_SIZE;
-		}
-#else
-		len = recv(fdraw, buf, MAX_PACKET_SIZE, 0);
-#endif
+		if (r < 0)
+			exit(0);
+		len = header->len;
 		if (len <= 0)
 			continue;
 /*		if (debug) {
@@ -445,7 +422,7 @@ void process_raw_packet(void)
 void usage(void)
 {
 	printf("Usage:\n");
-	printf("./urlprint [ -d ] -i ifname [ -p port1,port2 ]\n");
+	printf("./urlprint [ -d ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ]\n");
 	printf(" options:\n");
 	printf("    -d             enable debug\n");
 	printf("    -i ifname      interface to monitor\n");
@@ -456,37 +433,31 @@ void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int i = 1;
-	int got_one = 0;
-	do {
-		got_one = 1;
-		if (argc - i <= 0)
-			break;
-		if (strcmp(argv[i], "-d") == 0)
+	int c;
+	while ((c = getopt(argc, argv, "di:r:p:x")) != EOF)
+		switch (c) {
+		case 'd':
 			debug = 1;
-		else if (strcmp(argv[i], "-x") == 0)
+			break;
+		case 'i':
+			strncpy(dev_name, optarg, MAXLEN);
+			break;
+		case 'r':
+			strncpy(pcap_fname, optarg, MAXLEN);
+			break;
+		case 'p':
+			get_ports(optarg);
+			break;
+		case 'x':
 			rev_port = 1;
-		else if (strcmp(argv[i], "-i") == 0) {
-			i++;
-			if (argc - i <= 0)
-				usage();
-			strncpy(dev_name, argv[i], MAXLEN - 1);
-		} else if (strcmp(argv[i], "-p") == 0) {
-			i++;
-			if (argc - i <= 0)
-				usage();
-			get_ports(argv[i]);
-		} else
-			got_one = 0;
-		if (got_one)
-			i++;
-	}
-	while (got_one);
-	if (dev_name[0] == 0)
+			break;
+		}
+	if ((dev_name[0] == 0) && (pcap_fname[0] == 0))
 		usage();
 	if (debug) {
 		printf("         debug = 1\n");
-		printf("    moniter if = %s\n", dev_name);
+		printf("       pcap if = %s\n", dev_name);
+		printf("     pcap file = %s\n", pcap_fname);
 		printf("      revports = %d\n", rev_port);
 		printf("         ports = ");
 		int n;
@@ -498,8 +469,7 @@ int main(int argc, char *argv[])
 		printf("\n");
 	}
 
-	fdraw = open_rawsocket(dev_name, &ifindex);
-	process_raw_packet();
+	process_pcap_packet();
 
 	return 0;
 }
