@@ -48,6 +48,7 @@ typedef struct _EtherHeader EtherPacket;
 
 int daemon_proc = 0;
 int debug = 0;
+int print_time = 0;
 
 char dev_name[MAXLEN];
 char pcap_fname[MAXLEN];
@@ -280,7 +281,10 @@ void process_packet(const char *buf, int len)
 
 		if (url[0]) {
 			inet_ntop(AF_INET, (void *)&ip->saddr, sip, 200);
-			printf("%s:%d - %s:%d %s\n", sip, ntohs(tcph->source), dip, port, url);
+			if (print_time)
+				printf("%s %s:%d - %s:%d %s\n", stamp(), sip, ntohs(tcph->source), dip, port, url);
+			else
+				printf("%s:%d - %s:%d %s\n", sip, ntohs(tcph->source), dip, port, url);
 		}
 	} else if ((packet[0] == 0x86) && (packet[1] == 0xdd)) {	// IPv6 packet, 0x86dd
 		if (debug)
@@ -313,7 +317,10 @@ void process_packet(const char *buf, int len)
 
 		if (url[0]) {
 			inet_ntop(AF_INET6, (void *)&ip6->ip6_src, sip, 200);
-			printf("[%s]:%d - [%s]:%d %s\n", sip, ntohs(tcph->source), dip, port, url);
+			if (print_time)
+				printf("%s [%s]:%d - [%s]:%d %s\n", stamp(), sip, ntohs(tcph->source), dip, port, url);
+			else
+				printf("[%s]:%d - [%s]:%d %s\n", sip, ntohs(tcph->source), dip, port, url);
 		}
 	}
 }
@@ -353,9 +360,10 @@ void process_pcap_packet(void)
 void usage(void)
 {
 	printf("Usage:\n");
-	printf("./urlprint [ -d ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ]\n");
+	printf("./urlprint [ -d ] [ -t ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ]\n");
 	printf(" options:\n");
 	printf("    -d             enable debug\n");
+	printf("    -t             print timestamp\n");
 	printf("    -i ifname      interface to monitor\n");
 	printf("    -p port1,port2 tcp ports to monitor\n");
 	printf("    -x !port list, revers port select\n");
@@ -365,10 +373,13 @@ void usage(void)
 int main(int argc, char *argv[])
 {
 	int c;
-	while ((c = getopt(argc, argv, "di:r:p:x")) != EOF)
+	while ((c = getopt(argc, argv, "dti:r:p:x")) != EOF)
 		switch (c) {
 		case 'd':
 			debug = 1;
+			break;
+		case 't':
+			print_time = 1;
 			break;
 		case 'i':
 			strncpy(dev_name, optarg, MAXLEN);
