@@ -229,7 +229,7 @@ char *process_tcp_packet(char *buf, int len, char *ip, int port)
 
 void process_packet(const char *buf, int len)
 {
-	char *packet;
+	unsigned char *packet;
 	int VLANdot1Q = 0;
 	int port;
 	char sip[MAXLEN], dip[MAXLEN];
@@ -239,7 +239,7 @@ void process_packet(const char *buf, int len)
 		printf("pkt, len=%d\n", len);
 	if (len < 54)
 		return;
-	packet = buf + 12;	// skip ethernet dst & src addr
+	packet = (unsigned char *)(buf + 12);	// skip ethernet dst & src addr
 	len -= 12;
 	if (debug)
 		printf("proto: 0x%02X%02X\n", packet[0], packet[1]);
@@ -330,7 +330,7 @@ void process_pcap_packet(void)
 	pcap_t *handle;
 	struct pcap_pkthdr *header;	/* The header that pcap gives us */
 	char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
-	const unsigned char *buf;
+	const char *buf;
 	int len;
 	if (dev_name[0])
 		handle = pcap_open_live(dev_name, MAX_PACKET_SIZE, 0, 1000, errbuf);
