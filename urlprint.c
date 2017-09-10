@@ -241,6 +241,8 @@ void process_packet(const char *buf, int len)
 		return;
 	packet = buf + 12;	// skip ethernet dst & src addr
 	len -= 12;
+	if (debug)
+		printf("proto: 0x%02X%02X\n", packet[0], packet[1]);
 
 	if ((packet[0] == 0x81) && (packet[1] == 0x00)) {	// skip 802.1Q tag 0x8100
 		if (debug)
