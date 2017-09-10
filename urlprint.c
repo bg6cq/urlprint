@@ -182,7 +182,7 @@ void printPacket(EtherPacket * packet, ssize_t packetSize, char *message)
 	fflush(stdout);
 }
 
-char *process_tcp_packet(char *buf, int len, char *ip, int port)
+char *process_tcp_packet(char *buf, int len, char *ip)
 {
 	static char url[MAXLEN];
 	char *p, *purl, *host;
@@ -213,18 +213,11 @@ char *process_tcp_packet(char *buf, int len, char *ip, int port)
 		while (*phost && (*phost != '\r') && (*phost != '\n'))
 			phost++;
 		*phost = 0;
-		if (port != 80)
-			snprintf(url, MAXLEN - 1, "%s http://%s:%d%s", method == 0 ? "GET" : "POST", host, port, purl);
-		else
-			snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", host, purl);
+		snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", host, purl);
 	} else {
-		if (port != 80)
-			snprintf(url, MAXLEN - 1, "%s http://%s:%d%s", method == 0 ? "GET" : "POST", ip, port, purl);
-		else
-			snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", ip, purl);
+		snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", ip, purl);
 	}
 	return url;
-
 }
 
 void process_packet(const char *buf, int len)
@@ -283,7 +276,7 @@ void process_packet(const char *buf, int len)
 
 		inet_ntop(AF_INET, (void *)&ip->daddr, dip, 200);
 
-		url = process_tcp_packet((char *)packet + ip->ihl * 4 + tcph->doff * 4, tcp_payload_len, dip, port);
+		url = process_tcp_packet((char *)packet + ip->ihl * 4 + tcph->doff * 4, tcp_payload_len, dip);
 
 		if (url[0]) {
 			inet_ntop(AF_INET, (void *)&ip->saddr, sip, 200);
@@ -316,7 +309,7 @@ void process_packet(const char *buf, int len)
 			return;
 
 		inet_ntop(AF_INET6, (void *)&ip6->ip6_dst, dip, 200);
-		url = process_tcp_packet((char *)packet + 40 + tcph->doff * 4, tcp_payload_len, dip, port);
+		url = process_tcp_packet((char *)packet + 40 + tcph->doff * 4, tcp_payload_len, dip);
 
 		if (url[0]) {
 			inet_ntop(AF_INET6, (void *)&ip6->ip6_src, sip, 200);
