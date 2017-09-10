@@ -91,6 +91,17 @@ void get_ports(char *s)
 	}
 }
 
+int port_in_list(int port)
+{
+	if (TotalPorts == 0)
+		return 1;	// if list is empty, all ports in list
+	int i;
+	for (i = 0; i < TotalPorts; i++)
+		if (Ports[i] == port)
+			return 1;
+	return 0;
+}
+
 void err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 {
 	int errno_save, n;
@@ -333,14 +344,16 @@ void process_packet(u_int8_t * buf, int len)
 			return;	// tot_len should < len 
 
 		struct tcphdr *tcph = (struct tcphdr *)(packet + ip->ihl * 4);
-
-		port = ntohs(tcph->dest);
-
 		if (tcph->syn)
 			return;
 		if (!tcph->ack)
 			return;
+		port = ntohs(tcph->dest);
+		if (port_in_list(port) == 0)
+			return;
 		int tcp_payload_len = len - ip->ihl * 4 - tcph->doff * 4;
+		if (tcp_payload_len <= 10)
+			return;
 
 		inet_ntop(AF_INET, (void *)&ip->daddr, dip, 200);
 
@@ -368,7 +381,11 @@ void process_packet(u_int8_t * buf, int len)
 			return;
 		if (!tcph->ack)
 			return;
+		if (port_in_list(port) == 0)
+			return;
 		int tcp_payload_len = len - 40 - tcph->doff * 4;
+		if (tcp_payload_len <= 10)
+			return;
 
 		inet_ntop(AF_INET6, (void *)&ip6->ip6_dst, dip, 200);
 		url = process_tcp_packet((char *)packet + 40 + tcph->doff * 4, tcp_payload_len, dip, port);
