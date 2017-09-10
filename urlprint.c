@@ -64,6 +64,7 @@ int32_t ifindex;
 int fdraw;
 char dev_name[MAXLEN];
 int TotalPorts = 0;
+int rev_port = 0;
 
 #define MAXPORTS 64
 unsigned int Ports[MAXPORTS];
@@ -349,7 +350,7 @@ void process_packet(u_int8_t * buf, int len)
 		if (!tcph->ack)
 			return;
 		port = ntohs(tcph->dest);
-		if (port_in_list(port) == 0)
+		if (!(rev_port ^ port_in_list(port)))
 			return;
 		int tcp_payload_len = len - ip->ihl * 4 - tcph->doff * 4;
 		if (tcp_payload_len <= 10)
@@ -381,7 +382,7 @@ void process_packet(u_int8_t * buf, int len)
 			return;
 		if (!tcph->ack)
 			return;
-		if (port_in_list(port) == 0)
+		if (!(rev_port ^ port_in_list(port)))
 			return;
 		int tcp_payload_len = len - 40 - tcph->doff * 4;
 		if (tcp_payload_len <= 10)
@@ -433,9 +434,10 @@ void process_raw_packet(void)
 #endif
 		if (len <= 0)
 			continue;
-		if (debug) {
+/*		if (debug) {
 			printPacket((EtherPacket *) (buf), len, "from local  rawsocket:");
 		}
+*/
 		process_packet(buf, len);
 	}
 }
@@ -445,9 +447,10 @@ void usage(void)
 	printf("Usage:\n");
 	printf("./urlprint [ -d ] -i ifname [ -p port1,port2 ]\n");
 	printf(" options:\n");
-	printf("    -d            enable debug\n");
-	printf("    -i ifname     interface to monitor\n");
-	printf("    -p port1,port tcp ports to monitor\n");
+	printf("    -d             enable debug\n");
+	printf("    -i ifname      interface to monitor\n");
+	printf("    -p port1,port2 tcp ports to monitor\n");
+	printf("    -x !port list, revers port select\n");
 	exit(0);
 }
 
@@ -461,6 +464,8 @@ int main(int argc, char *argv[])
 			break;
 		if (strcmp(argv[i], "-d") == 0)
 			debug = 1;
+		else if (strcmp(argv[i], "-x") == 0)
+			rev_port = 1;
 		else if (strcmp(argv[i], "-i") == 0) {
 			i++;
 			if (argc - i <= 0)
@@ -482,6 +487,7 @@ int main(int argc, char *argv[])
 	if (debug) {
 		printf("         debug = 1\n");
 		printf("    moniter if = %s\n", dev_name);
+		printf("      revports = %d\n", rev_port);
 		printf("         ports = ");
 		int n;
 		if (TotalPorts == 0)
