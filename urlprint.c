@@ -52,6 +52,7 @@ int print_time = 0;
 
 char dev_name[MAXLEN];
 char pcap_fname[MAXLEN];
+char filter_string[MAXLEN];
 int TotalPorts = 0;
 int rev_port = 0;
 
@@ -340,6 +341,17 @@ void process_pcap_packet(void)
 		fprintf(stderr, "pcap open %s error %s\n", dev_name[0] ? dev_name : pcap_fname, errbuf);
 		exit(0);
 	}
+	if (filter_string[0]) {
+		struct bpf_program pgm;
+		if (pcap_compile(handle, &pgm, filter_string, 1, PCAP_NETMASK_UNKNOWN) == -1) {
+			fprintf(stderr, "pcap_filter compile error\n");
+			exit(0);
+		}
+		if (pcap_setfilter(handle, &pgm) == -1) {
+			fprintf(stderr, "pcap_setfilter error\n");
+			exit(0);
+		}
+	}
 	while (1) {
 		int r = pcap_next_ex(handle, &header, (const u_char **)&buf);
 		if (r == 0)
@@ -360,20 +372,21 @@ void process_pcap_packet(void)
 void usage(void)
 {
 	printf("Usage:\n");
-	printf("./urlprint [ -d ] [ -t ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ]\n");
+	printf("./urlprint [ -d ] [ -t ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ] [ -f filter_string ] \n");
 	printf(" options:\n");
-	printf("    -d             enable debug\n");
-	printf("    -t             print timestamp\n");
-	printf("    -i ifname      interface to monitor\n");
-	printf("    -p port1,port2 tcp ports to monitor\n");
-	printf("    -x !port list, revers port select\n");
+	printf("    -d               enable debug\n");
+	printf("    -t               print timestamp\n");
+	printf("    -i ifname        interface to monitor\n");
+	printf("    -p port1,port2   tcp ports to monitor\n");
+	printf("    -x !port list,   revers port select\n");
+	printf("    -f filter_string pcap filter\n");
 	exit(0);
 }
 
 int main(int argc, char *argv[])
 {
 	int c;
-	while ((c = getopt(argc, argv, "dti:r:p:x")) != EOF)
+	while ((c = getopt(argc, argv, "dti:r:p:xf:")) != EOF)
 		switch (c) {
 		case 'd':
 			debug = 1;
@@ -392,6 +405,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'x':
 			rev_port = 1;
+			break;
+		case 'f':
+			strncpy(filter_string, optarg, MAXLEN);
 			break;
 		}
 	if ((dev_name[0] == 0) && (pcap_fname[0] == 0))
