@@ -208,6 +208,10 @@ char *process_tcp_packet(char *buf, int len, char *ip)
 		*p = 0;
 		p++;
 	}
+	if (strncasecmp(purl, "http://", 7) == 0) {	// proxy request
+		snprintf(url, MAXLEN - 1, "%s %s", method == 0 ? "GET" : "POST", purl);
+		return url;
+	}
 	host = memmem(p, len - (p - buf), "Host: ", 6);
 	if (host) {
 		host = host + 6;
