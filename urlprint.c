@@ -219,9 +219,15 @@ char *process_tcp_packet(char *buf, int len, char *ip)
 		while (*phost && (*phost != '\r') && (*phost != '\n'))
 			phost++;
 		*phost = 0;
-		snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", host, purl);
+		if(*purl=='/')
+			snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", host, purl);
+		else
+			snprintf(url, MAXLEN - 1, "%s http://%s/%s", method == 0 ? "GET" : "POST", host, purl);
 	} else {
-		snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", ip, purl);
+		if(*purl=='/')
+			snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", ip, purl);
+		else
+			snprintf(url, MAXLEN - 1, "%s http://%s/%s", method == 0 ? "GET" : "POST", ip, purl);
 	}
 	return url;
 }
