@@ -237,7 +237,6 @@ char *process_tcp_packet(char *buf, int len, char *ip)
 void process_packet(const char *buf, int len)
 {
 	unsigned char *packet;
-	int VLANdot1Q = 0;
 	int port;
 	char sip[MAXLEN], dip[MAXLEN];
 	char *url;
@@ -256,7 +255,6 @@ void process_packet(const char *buf, int len)
 			printf("802.1Q pk\n");
 		packet += 4;
 		len -= 4;
-		VLANdot1Q = 1;
 	}
 	if ((packet[0] == 0x08) && (packet[1] == 0x00)) {	// IPv4 packet 0x0800
 		if (debug)
