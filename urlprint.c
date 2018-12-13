@@ -219,6 +219,8 @@ char *process_tcp_packet(char *buf, int len, char *ip)
 		while (*phost && (*phost != '\r') && (*phost != '\n'))
 			phost++;
 		*phost = 0;
+		while( (phost > host) && (*(phost-1)=='.'))  // skip host last ...
+			phost--;
 		if(*purl=='/')
 			snprintf(url, MAXLEN - 1, "%s http://%s%s", method == 0 ? "GET" : "POST", host, purl);
 		else
