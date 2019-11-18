@@ -1,5 +1,20 @@
 urlprint:  using libpcap to caputre packets and print the HTTP URL
 
+使用libpcap记录HTTP/HTTPS的访问，对于https访问，仅仅记录访问的域名
+
+命令行：
+```
+Usage:
+./urlprint [ -d ] [ -t ] -i ifname | -r pcap_file [ -p port1,port2 ] [ -x ] [ -f filter_string ] 
+ options:
+    -d               enable debug
+    -t               print timestamp
+    -i ifname        interface to monitor
+    -p port1,port2   tcp ports to monitor
+    -x !port list,   revers port select
+    -f filter_string pcap filter
+```
+
 使用例子：
 ```
  /usr/src/urlprint/urlprint -t -i eth0
