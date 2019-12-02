@@ -302,7 +302,8 @@ static int parse_tls_header(const uint8_t * data, size_t data_len, char **hostna
          * See RFC5246 Appendix E.2
          */
         if (data[0] & 0x80 && data[2] == 1) {
-                printf("Received SSL 2.0 Client Hello which can not support SNI.");
+		if(debug)
+                	printf("Received SSL 2.0 Client Hello which can not support SNI.");
                 return -2;
         }
 
@@ -316,7 +317,8 @@ static int parse_tls_header(const uint8_t * data, size_t data_len, char **hostna
         tls_version_major = data[1];
         tls_version_minor = data[2];
         if (tls_version_major < 3) {
-                printf("Received SSL %" PRIu8 ".%" PRIu8 " handshake which can not support SNI.", tls_version_major, tls_version_minor);
+		if(debug)
+                	printf("Received SSL %" PRIu8 ".%" PRIu8 " handshake which can not support SNI.", tls_version_major, tls_version_minor);
 
                 return -2;
         }
@@ -502,9 +504,9 @@ void process_packet(const char *buf, int len)
 #endif
 			inet_ntop(AF_INET, (void *)&ip->saddr, sip, 200);
 			if (print_time)
-				printf("%s %s:%d - %s:%d GET https://%s\n", stamp(), sip, ntohs(tcph->source), dip, port, hostname);
+				printf("%s %s:%d - %s:%d GET https://%s/\n", stamp(), sip, ntohs(tcph->source), dip, port, hostname);
 			else
-				printf("%s:%d - %s:%d GET https://%s\n", sip, ntohs(tcph->source), dip, port, hostname);
+				printf("%s:%d - %s:%d GET https://%s/\n", sip, ntohs(tcph->source), dip, port, hostname);
 			
 			return;
 		}
@@ -560,9 +562,9 @@ void process_packet(const char *buf, int len)
 #endif
 			inet_ntop(AF_INET6, (void *)&ip6->ip6_src, sip, 200);
                         if (print_time)
-                                printf("%s %s:%d - %s:%d GET https://%s\n", stamp(), sip, ntohs(tcph->source), dip, port, hostname);
+                                printf("%s %s:%d - %s:%d GET https://%s/\n", stamp(), sip, ntohs(tcph->source), dip, port, hostname);
                         else
-                                printf("%s:%d - %s:%d GET https://%s\n", sip, ntohs(tcph->source), dip, port, hostname);
+                                printf("%s:%d - %s:%d GET https://%s/\n", sip, ntohs(tcph->source), dip, port, hostname);
 
                         return;
                 }
